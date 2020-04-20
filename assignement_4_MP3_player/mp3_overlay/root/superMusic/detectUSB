@@ -1,0 +1,248 @@
+#!/bin/sh
+
+no_of_songs_system=$(find / -name "*.mp3" | wc -l)
+size=0
+type=0
+USBconnectedFlag=0 
+search1=0
+counter=0
+search2=0
+USBFlag=0
+searchflag=0
+devcounter=0
+partaionSize=0
+noUSBFlag=0
+prevpartitions=0
+partitions=0
+
+folderCreatedFlag=0
+foldercounter=0
+
+FirstTimesFlag=1
+
+USB_Idx=0
+
+
+# check if flag file has created before
+if [ ! -f /root/superMusic/somethingChanged.conf ] ; then 
+    touch /root/superMusic/somethingChanged.conf
+    chmod 777 /root/superMusic/somethingChanged.conf
+    echo "FLAG=0" > /root/superMusic/somethingChanged.conf
+fi
+while true; do
+#Writing 1 in this file to make sure this deamon is alive
+echo "daemon2_Flag=1" > /root/superMusic/var/daemon2_Flag
+sleep 1.5
+
+
+#searching in /dev for any connected devices
+search=$(find /dev/ -name sd*)
+#-----------------------------Section 1-------------------------------------
+#In case on connceted devices
+   if  [[  -z $search  ]] ; then 
+	if [ $noUSBFlag -eq 0 ] ; then
+	noUSBFlag=1
+	espeak "no USB device found" --stdout | aplay
+	echo "no USB Found"
+	fi
+	search1=0
+	search2=0
+	
+#In case a folder was found in media and no connected device in /dev/ delete it                                                                                                               
+             unwantedDir=$(ls /media)
+	     if ! [ "$unwantedDir" == "" ]
+		     then
+
+	     		umount /media/$unwantedDir
+	    		rmdir /media/$unwantedDir
+			source /root/superMusic/var/$unwantedDir
+			source /root/superMusic/var/songArray
+			source /root/superMusic/var/Curser
+			source /root/superMusic/var/State
+			song_found_flag=0
+			j=0
+	#-----------------------------Section 1.1-------------------------------------
+		while [[ $j < $Num_Songs ]]; do
+			if [[ "${songArray[$Curser]}" == "${local_songArray[$j]}" ]] ; then
+			echo Curser=0 > /root/superMusic/var/Curser
+				song_found_flag=1
+				if [[ "$State" == "Running" ]] || [[ "$State" == "Paused" ]] ; then
+      						killall -KILL mpg123 
+                                        echo "State=0" >  /root/superMusic/var/State    
+					echo FTFlag=0 > /root/superMusic/var/FTFlag
+				fi
+				break
+			fi
+			j=$(($j+1))
+		done
+	#---------------------------------------------------------------------------------
+			if [ $song_found_flag -eq 0 ] ; then
+			echo Curser=$(($Curser-$Num_Songs)) > /root/superMusic/var/Curser
+			fi	
+	     		rm /root/superMusic/var/$unwantedDir
+	     fi 
+
+
+#-------------------------------------Section2-------------------------------------------
+	if [[  $USBFlag  -eq 1 ]] ; then
+		echo "FLAG=1" >  /root/superMusic/somethingChanged.conf
+		USBFlag=0 
+	fi
+
+   else #something now is connected
+#-------------------------------------Section3-------------------------------------------
+	if [  "$counter" -eq 1 ] ; then
+      	counter=0
+       		search1=$search
+	else
+       		counter=1
+        	search2=$search
+	fi
+	partaionSize=0
+
+	# Checking if a change happened 
+	if ! [  "$search1" == "$search2"  ] ||  [ $FirstTimesFlag -eq 1 ] ; then  
+ 
+		
+		partitions="$(fdisk -l /dev/sd* | grep -v 'Unknown' | grep -v 'Empty' | awk '/^\/dev\/sd/ {print $1}')"
+		
+      	    for partition in $partitions; do
+         		mountpoint="/media/$(basename $partition)"
+				
+			if  [ $FirstTimesFlag -eq 1 ] ; then
+				umount $mountpoint
+				rmdir  $mountpoint
+				echo hello world
+				 mkdir $mountpoint  
+				mount $partition $mountpoint
+
+				no_of_songs_media=$(find $mountpoint -name "*.mp3" | wc -l)                       
+                                echo Num_Songs=$no_of_songs_media >> /root/superMusic/var/$(basename $partition)  
+ 
+				i=0 
+				#------------------------Section3.1------------------------
+				while IFS= read -r var
+				do
+					source /root/superMusic/var/Curser
+					echo local_songArray[$i]=$var >> /root/superMusic/var/$(basename $partition)
+					i=$[ $i +1 ]
+					echo Curser=$(($Curser+1)) > /root/superMusic/var/Curser
+				done <<< $(find $mountpoint -iname "*mp3")
+
+				#-----------------------------------------------------------	
+			
+			elif ! [ -d $mountpoint ] && [ $folderCreatedFlag -eq 0 ]; then                                           
+                        mkdir $mountpoint
+			folderCreatedFlag=1                                                                                         
+                        mount $partition $mountpoint  
+			                                                     
+                        no_of_songs_media=$(find $mountpoint -name "*.mp3" | wc -l)                            
+                        echo "Num_Songs=$no_of_songs_media" >> /root/superMusic/var/$(basename $partition)  			  
+			i=0  
+			#------------------------Section3.2------------------------
+									                                                                                     
+                        while IFS= read -r var                     
+                                do                                                                                       
+                                	source /root/superMusic/var/Curser	
+				        echo local_songArray[$i]=$var >> /root/superMusic/var/$(basename $partition)         
+                                        i=$[ $i +1 ]
+                        		echo Curser=$(($Curser+1)) > /root/superMusic/var/Curser                                     
+                                done <<< $(find $mountpoint -iname "*mp3")
+ 			 #-----------------------------------------------------------
+			type="$(fdisk -l /dev/sd* | grep -v 'Unknown' | grep -v 'Empty' | awk '/^\/dev\/sd/ {print $11}')"
+			
+			size="$(fdisk -l /dev/sd* | grep -v 'Unknown' | grep -v 'Empty' | awk '/^\/dev\/sd/ {print $8}')"
+			fi
+			
+			
+        		echo "FLAG=1" > /root/superMusic/somethingChanged.conf
+			USBFlag=1
+			partaionSize=$(($partaionSize+1))
+		done                  
+                       if  [ $FirstTimesFlag -eq 1 ] ; then
+			 FirstTimesFlag=0
+			                       
+ 			fi
+
+#-------------------------------------Section4-------------------------------------------	
+	   folders=$(ls /media/ )
+		foldercounter=0
+		for folder in folders ; do
+		foldercounter=$(($foldercounter+1))
+		done
+		if [ $foldercounter -gt $partaionSize ] ; then
+			folderCreatedFlag=0
+			
+		fi
+	   if [ $folderCreatedFlag -eq 0 ] ; then 
+	   for folder in $folders ; do
+		devcounter=0
+		for partition in $partitions ; do
+		
+			if ! [ "$folder" == $(basename $partition) ] ; then
+				devcounter=$(($devcounter+1))
+			fi
+		echo $folder
+		done
+		
+		if [ "$devcounter" == "$partaionSize" ]	; then
+			umount /media/$folder		
+			rmdir /media/$folder
+			source /root/superMusic/var/$folder
+                        source /root/superMusic/var/songArray
+                        source /root/superMusic/var/Curser
+                        source /root/superMusic/var/State
+                        song_found_flag=0                
+                        j=0 
+	#-----------------------------Section 4.1-------------------------------------                     
+               		 while [[ $j < $Num_Songs ]]; do                 
+                        	if [[ "${songArray[$Curser]}" == "${local_songArray[$j]}" ]] ; then
+                                	Curser=0                  
+                                	song_found_flag=1        
+	                               	if [[ "$State" == "Running" ]] || [[ "$State" == "Paused" ]] ; then
+        
+                                        	killall -KILL mpg123   
+	                                        echo "State=0" >  /root/superMusic/var/State 
+                                      	fi                                                        
+                                	break                     
+                        	fi                               
+                        j=$(($j+1))                                                                
+                	done            
+	#-----------------------------Section 4.2-------------------------------------                                                   
+                        if [ $song_found_flag -eq 1 ] ; then    
+                                Curser=$(($Curser-$Num_Songs))                             
+                        fi
+			                                
+                        rm /root/superMusic/var/$folder
+
+			foldercounter=$(($foldercounter-1))
+			echo Folder $folder removed !
+                        espeak "a USB device has been removed" --stdout | aplay
+			USBconnectedFlag=0
+			
+			break
+		else
+			USBconnectedFlag=1
+			                                                                                                                       
+		fi
+		
+	done
+#-------------------------------------Section5-------------------------------------------
+	else
+	folderCreatedFlag=0
+	USBconnectedFlag=1		
+	if [ $USBconnectedFlag -eq 1 ] ; then
+		USBconnectedFlag=0
+		espeak "a USB device has been connected" --stdout | aplay 
+                 espeak "Number of songs is $no_of_songs_media" --stdout | aplay
+		 espeak "it's type is $type and it's size is $size" --stdout | aplay 
+		 noUSBFlag=0
+	                                                                                        
+                                                                                                    
+        fi                                                                                          
+                        
+	fi
+
+	fi                                                                                                
+  fi
+done

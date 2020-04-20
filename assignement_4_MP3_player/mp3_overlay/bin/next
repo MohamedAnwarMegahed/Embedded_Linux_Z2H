@@ -1,0 +1,3 @@
+#!/bin/sh
+
+echo NextFlag=1 > /root/superMusic/var/NextFlag

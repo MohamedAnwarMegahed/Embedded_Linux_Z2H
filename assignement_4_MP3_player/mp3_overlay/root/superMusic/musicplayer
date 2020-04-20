@@ -1,0 +1,354 @@
+#!/bin/bash
+set -e
+#sudo modprobe snd-bcm2835 #This will wire up the sound card with alsa
+PLAYER="/"
+test -d ${PLAYER} || exit 1
+i=0
+curser=0
+button_state=0
+FirstTimeFlag=0
+playflag=0
+
+
+
+
+
+
+if [ ! -d /sys/class/gpio/gpio4 ] ; then # check if export process has done before 
+    echo "4" > /sys/class/gpio/export                      
+    echo "in" > /sys/class/gpio/gpio4/direction                                    
+fi                                                                      
+if [ ! -d /sys/class/gpio/gpio17 ] ; then # check if export process has done before
+    echo "17" > /sys/class/gpio/export                                  
+    echo "in" > /sys/class/gpio/gpio17/direction                                   
+fi                                                         
+if [ ! -d /sys/class/gpio/gpio18 ] ; then # check if export process has done before
+    echo "18" > /sys/class/gpio/export                                  
+    echo "in" > /sys/class/gpio/gpio18/direction                                   
+fi                                                                      
+if [ ! -d /sys/class/gpio/gpio27 ] ; then                                          
+    echo "27" > /sys/class/gpio/export                     
+    echo "in" > /sys/class/gpio/gpio27/direction                                   
+fi                                                                      
+if [ ! -f  /root/superMusic/somethingChanged.conf ] ; then # check if not exists   
+    echo "FLAG=0" > /root/superMusic/somethingChanged.conf              
+    chmod 777 /root/superMusic/somethingChanged.conf                               
+fi                                                                  
+                                                                                            
+if [ ! -f  /root/superMusic/var/songArray ] ; then # check if not exists
+    echo "songArray=()" > /root/superMusic/var/songArray                           
+    chmod 777 /root/superMusic/var/songArray                            
+fi                                                                                          
+                                                                    
+if [ ! -f  /root/superMusic/var/Curser ] ; then # check if not exists                       
+    echo "Curser=0" > /root/superMusic/var/Curser                       
+    chmod 777 /root/superMusic/var/Curser                                          
+fi                                                                      
+                                                                                            
+if [ ! -f  /root/superMusic/var/State ] ; then # check if not exists
+    echo "State=0" > /root/superMusic/var/State                                             
+    chmod 777 /root/superMusic/var/State                                
+fi                                                                                 
+                                                                        
+if [ ! -f /root/superMusic/var/daemon1_Flag ] ; then # check if flag file has created before
+    touch /root/superMusic/var/daemon1_Flag                         
+    chmod 777 /root/superMusic/var/daemon1_Flag                                             
+    echo "daemon1_Flag=1" > /root/superMusic/var/daemon1_Flag           
+fi                                                                                 
+                                                                        
+if [ ! -f /root/superMusic/var/FTFlag ] ; then # check if flag file has created before    
+    touch /root/superMusic/var/FTFlag                           
+    chmod 777 /root/superMusic/var/FTFlag                                             
+    echo FTFlag=0 > /root/superMusic/var/FTFlag          
+fi                                                                                 
+   
+
+creatingarray(){
+
+i=0
+#curser=0
+#button_state=0
+#FirstTimeFlag=0
+#playflag=0
+arr=()
+
+PrevPressed=0
+if [ ! -f  /root/superMusic/var/songArray ] ; then # check if not exists                        
+    echo "songArray=()" > /root/superMusic/var/songArray                                        
+    chmod 777 /root/superMusic/var/songArray                                       
+fi
+
+if [ ! -f  /root/superMusic/var/State ] ; then # check if not exists    
+    echo "State=0" > /root/superMusic/var/State                                    
+    chmod 777 /root/superMusic/var/State                                
+fi   
+
+echo "" > /root/superMusic/var/songArray 
+
+echo "PlayingFlag=0" > /root/superMusic/var/PlayingFlag
+echo "PauseFlag=0" > /root/superMusic/var/PauseFlag
+echo "NextFlag=0" > /root/superMusic/var/NextFlag
+echo "PrevFlag=0" > /root/superMusic/var/PrevFlag
+echo "ShufFlag=0" > /root/superMusic/var/ShufFlag
+
+
+#espeak "creating array" --stdout | aplay 
+
+while IFS= read -r var
+do
+source /root/superMusic/var/songArray
+ 
+  arr[$i]=$var" "
+  echo songArray[$i]=$var >> /root/superMusic/var/songArray
+  i=$[ $i +1 ]
+done <<< $(find $PLAYER -iname "*mp3") 
+Max=$[$i -1]
+Min=0
+}
+creatingarray
+
+counter=0
+while true; do
+source /root/superMusic/var/Ult_flag 
+  if [[  $Ult_flag -eq 1  ]] ; then                                                    
+                                                                                                                                    
+    echo "Ult_flag=0" > /root/superMusic/var/Ult_flag
+#    break                                      
+  fi
+
+echo "daemon1_Flag=1" > /root/superMusic/var/daemon1_Flag
+  counter=$[ $counter +1 ]
+  if [ $counter -gt 50 ] ; then
+	counter=0
+	 if [  $FirstTimeFlag  -eq 0 ] ; then
+		echo  "Nothing is played right now"
+        	#wall "Nothing is played right now" # -n  to suppress
+        elif [ $playflag -eq 0 ] ; then
+		echo "  ${arr[$curser]} song is now paused"
+                #wall "  ${arr[$curser]} song is now paused"
+        else
+		echo " ${arr[$curser]} song is being played right now"
+                #wall " ${arr[$curser]} song is being played right now"
+        fi
+  fi
+  source /root/superMusic/var/State
+  source /root/superMusic/somethingChanged.conf
+  if [[  $FLAG -eq 1  ]] ; then 
+    echo "something changed"
+    source /root/superMusic/var/Curser
+    curser=$Curser	
+    if [[ $State -eq 0 ]] ; then
+	button_state=0
+        source /root/superMusic/var/FTFlag                                                                     
+#	echo FTFlag=0 > /root/superMusic/var/FTFlag   
+    fi
+    creatingarray
+    echo "FLAG=0" > /root/superMusic/somethingChanged.conf
+  fi
+	#if [[ $flag = "1" ]] ; then 
+	#espeak " hello entered in the condition of flag"
+	#fi 
+	if [ ! -f  /root/superMusic/var/PlayingFlag ] ; then # check if not exists
+    		echo "PlayingFlag=0" > /root/superMusic/var/PlayingFlag                         
+   		 chmod 777 /root/superMusic/var/PlayingFlag                                            
+	fi
+	 if [ ! -f  /root/superMusic/var/PauseFlag ] ; then # check if not exists              
+                echo "PauseFlag=0" > /root/superMusic/var/PauseFlag                         
+                 chmod 777 /root/superMusic/var/PauseFlag                        
+        fi
+   	if [ ! -f  /root/superMusic/var/NextFlag ] ; then # check if not exists               
+                echo "NextFlag=0" > /root/superMusic/var/NextFlag     
+                 chmod 777 /root/superMusic/var/NextFlag                               
+        fi
+        if [ ! -f  /root/superMusic/var/PrevFlag ] ; then # check if not exists                
+                echo "PrevFlag=0" > /root/superMusic/var/PrevFlag               
+                 chmod 777 /root/superMusic/var/PrevFlag                                   
+        fi
+        if [ ! -f  /root/superMusic/var/ShufFlag ] ; then # check if not exists    
+                echo "ShufFlag=0" > /root/superMusic/var/ShufFlag                  
+                 chmod 777 /root/superMusic/var/ShufFlag                                   
+        fi  
+	source /root/superMusic/var/State 
+	source /root/superMusic/var/Curser
+	source /root/superMusic/var/ShufFlag
+	source /root/superMusic/var/PrevFlag
+	source /root/superMusic/var/NextFlag
+	source /root/superMusic/var/PlayingFlag
+	source /root/superMusic/var/PauseFlag
+#----------------------Section9------------------------ 
+ if [[ $ShufFlag -eq 1 ]] ;then
+	echo ShufFlag=0 > /root/superMusic/var/ShufFlag                            
+    if [ $playflag -eq 1 ] ; then                                     
+        killall -KILL mpg123                                                                    
+        sleep 0.5                                                                 
+        curser=$(($(( $RANDOM % $(($Max+1)) ))-1))                                 
+    	echo Curser=$curser > /root/superMusic/var/Curser
+        mpg123 ${arr[@]:$curser} &                                    
+                                                                                                
+  fi                                                                               
+fi 
+#----------------------Section7------------------------ 
+  if [[ $NextFlag -eq 1 ]] ; then                  
+     echo NextFlag=0 > /root/superMusic/var/NextFlag
+      if [ $playflag -eq 1 ] ; then                                                              
+                                                                                                
+      if [ $curser -lt $Max ] ; then                                                            
+        killall -KILL mpg123                                                      
+        sleep 0.5                                                                               
+        curser=$[ $curser +1 ]
+	echo Curser=$curser > /root/superMusic/var/Curser                                             
+        echo "playing song = $curser"                                                           
+        mpg123 ${arr[@]:$curser} &                                                
+                                                                       
+      fi                                                                           
+    fi                                                                                          
+  fi
+#----------------------Section8------------------------  
+  if [[ $PrevFlag -eq 1 ]] ; then  
+	echo PrevFlag=0 > /root/superMusic/var/PrevFlag                                               
+     if [ $playflag -eq 1 ] ; then                                                              
+                                                                                                
+      if [ $curser -gt $Min ] ; then                                                            
+        killall -KILL mpg123                                                      
+        sleep 0.5                                                                               
+        curser=$[ $curser - 1 ]
+	echo Curser=$curser > /root/superMusic/var/Curser                                                                   
+        echo "playing song = $curser"                                                           
+        mpg123 ${arr[@]:$curser} &                                                
+                                                                                                
+      fi                                                                                        
+    fi                                                                                          
+  fi
+  
+  source /root/superMusic/var/Curser
+#----------------------Section5------------------------
+  if [[ $PlayingFlag -eq 1 ]] ; then
+       source /root/superMusic/var/FTFlag 
+	if [[ $FTFlag -eq 0 ]] ; then  
+		mpg123 ${arr[@]:$Curser} & 
+		button_state=1 
+	        echo FTFlag=1 > /root/superMusic/var/FTFlag  
+   		playflag=1
+	       sleep 0.5
+                                                                                                                                        
+	       echo PlayingFlag=0 > /root/superMusic/var/PlayingFlag 
+	       echo State=Running > /root/superMusic/var/State
+	else
+		button_state=1                                                                                           
+      		echo PlayingFlag=0 > /root/superMusic/var/PlayingFlag
+		echo State=Running > /root/superMusic/var/State 
+		killall -CONT mpg123
+                                                                                                                             
+	        playflag=1
+		sleep 0.4
+	fi
+  fi
+#----------------------Section6------------------------
+  if [[ $PauseFlag -eq 1 ]] ; then                                               
+         echo PauseFlag=0 > /root/superMusic/var/PauseFlag
+	 if [ $playflag -eq 1 ] ; then 	                                                                                                                                                                             
+                button_state=0                                              
+        	echo State=Paused > /root/superMusic/var/State 
+         
+                killall -STOP  mpg123                                              
+                playflag=0                                                         
+                sleep 0.4 
+	fi                                                                                                 
+  fi
+
+#--------------------------------------Section1----------------------------------------------
+  if [ $(cat /sys/class/gpio/gpio4/value) -eq 1 ] ; then #if anyone pushed the button ==> toggle 
+    #toggle button state
+    source /root/superMusic/var/FTFlag
+#----------------------Section1.1------------------------
+    if [[ $FTFlag -eq 0 ]] ; then 
+      mpg123 ${arr[@]:$curser} &
+
+      echo State=Running > /root/superMusic/var/State 
+      echo FTFlag=1 > /root/superMusic/var/FTFlag 
+      button_state=1
+      playflag=1
+      sleep 0.5
+      continue
+    fi
+#----------------------Section1.2------------------------	 
+    if [ $button_state -eq 0 ]
+      then
+      echo State=Running > /root/superMusic/var/State
+      source /root/superMusic/var/State 
+
+      killall -CONT mpg123
+      playflag=1
+      button_state=1
+       
+      sleep 0.4
+#----------------------Section1.3------------------------
+    elif [ $button_state -eq 1 ]
+    then
+      echo State=Paused > /root/superMusic/var/State 
+      source /root/superMusic/var/State                                                                     
+      killall -STOP mpg123                                                                      
+      playflag=0
+      button_state=0
+      sleep 0.4 # to allow finger release
+    fi
+  fi
+#----------------------Section2------------------------
+  if [ $(cat /sys/class/gpio/gpio17/value) -eq 1 ] ; then #next
+     if [ $playflag -eq 1 ] ; then 
+
+      if [ $curser -lt $Max ] ; then 
+        killall -KILL mpg123
+        sleep 0.5
+	 curser=$[ $curser +1 ]
+
+	echo Curser=$curser > /root/superMusic/var/Curser 
+        mpg123 ${arr[@]:$curser} &
+        
+      fi
+    fi
+  fi
+#----------------------Section3.1------------------------
+  if [ $(cat /sys/class/gpio/gpio18/value) -eq 1 ] ; then #prev
+     if [ $playflag -eq 1 ] ; then 
+        killall -KILL mpg123                                                                    
+	sleep 0.2
+	echo "playing song = $curser"                                                           
+        mpg123 ${arr[@]:$curser} &
+	PrevPressed=1
+        
+      fi
+#----------------------Section3.2------------------------
+  else
+	if [ $PrevPressed -eq 1 ] ; then
+		counter=0                                                                               
+       		while [ $counter -lt 200 ] ; do                                                         
+    		counter=$(($counter+1))  
+		if [ $(cat /sys/class/gpio/gpio18/value) -eq 1 ] ; then
+			        if [ $curser -gt $Min ] ; then                                                          
+        				killall -KILL mpg123                                                                    
+       					 sleep 0.2                                                                 
+       					 curser=$[ $curser -1 ]                                                                  
+       					 echo Curser=$curser > /root/superMusic/var/Curser 
+					 echo "playing song = $curser"                                                           
+       					 mpg123 ${arr[@]:$curser} &  
+				fi
+			break
+		fi
+		done
+		PrevPressed=0
+	fi	
+  fi
+#----------------------Section4------------------------
+ if [ $(cat /sys/class/gpio/gpio27/value) -eq 1 ] ;then
+    if [ $playflag -eq 1 ] ; then
+	killall -KILL mpg123
+	sleep 0.5
+	curser=$(($(( $RANDOM % $(($Max+1)) ))-1))
+	echo Curser=$curser > /root/superMusic/var/Curser
+	mpg123 ${arr[@]:$curser} &
+
+  fi
+fi
+done
+

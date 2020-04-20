@@ -1,0 +1,58 @@
+#!/bin/sh
+
+DAEMON1="/root/superMusic/musicplayer"
+DAEMON2="/root/superMusic/detectUSB"  
+                                    
+if [ ! -f /root/superMusic/var/daemon1_Flag ] ; then # check if flag file has created before
+    touch /root/superMusic/var/daemon1_Flag                                                 
+    chmod 777 /root/superMusic/var/daemon1_Flag
+    echo "daemon1_Flag=1" > /root/superMusic/var/daemon1_Flag
+fi                                                           
+  
+if [ ! -f /root/superMusic/var/daemon2_Flag ] ; then # check if flag file has created before
+    touch /root/superMusic/var/daemon2_Flag                                                 
+    chmod 777 /root/superMusic/var/daemon2_Flag
+    echo "daemon2_Flag=1" > /root/superMusic/var/daemon2_Flag
+fi                                                           
+  
+
+while true ; do
+echo "daemon1_Flag=0" > /root/superMusic/var/daemon1_Flag
+echo "daemon2_Flag=0" > /root/superMusic/var/daemon2_Flag
+                                                         
+
+#espeak "me" --stdout | aplay
+sleep 0.5                    
+sleep 3  
+source /root/superMusic/var/daemon1_Flag
+source /root/superMusic/var/daemon2_Flag
+source /root/superMusic/var/State       
+                                 
+
+if [[ $daemon1_Flag -eq 0 ]] ; then
+                                   
+#espeak "daemon one" --stdout | aplay
+echo "Ult_flag=1" > /root/superMusic/var/Ult_flag
+#start-stop-daemon --stop --quiet --exec ${DAEMON1}
+#        killall -KILL mpg123                      
+#espeak "daemon one" --stdout | aplay
+                                     
+. ${DAEMON1} &
+              
+fi
+  
+if [[ $daemon2_Flag -eq 0 ]] ; then
+                                   
+#espeak "daemon two" --stdout | aplay
+echo "Ult_flag=1" > /root/superMusic/var/Ult_flag
+                                                 
+#start-stop-daemon --stop --quiet --exec ${DAEMON2}
+#        killall -KILL mpg123                      
+#espeak "daemon one" --stdout | aplay
+                                     
+. ${DAEMON2} &
+              
+fi
+  
+done
+

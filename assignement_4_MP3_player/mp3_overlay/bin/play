@@ -1,0 +1,5 @@
+#!/bin/sh            
+ 
+
+echo "PlayingFlag=1" > /root/superMusic/var/PlayingFlag                                                 
+ 

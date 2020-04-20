@@ -1,0 +1,3 @@
+#!/bin/sh
+
+echo ShufFlag=1 > /root/superMusic/var/ShufFlag

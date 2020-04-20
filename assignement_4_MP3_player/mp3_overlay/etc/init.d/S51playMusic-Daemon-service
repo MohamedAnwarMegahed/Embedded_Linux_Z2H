@@ -1,0 +1,48 @@
+#!/bin/sh
+DAEMON1="/root/superMusic/musicplayer"
+DAEMON2="/root/superMusic/detectUSB"
+DAEMON3="/root/superMusic/daemonUP"
+
+
+test -f ${DAEMON1} ||  exit 0
+test -f ${DAEMON2} ||  exit 0
+test -f ${DAEMON3} ||  exit 0
+
+
+rm -r /root/superMusic/var
+mkdir /root/superMusic/var
+
+
+startdaemon1(){
+
+modprobe snd-bcm2835
+
+start-stop-daemon -b --start --quiet --exec ${DAEMON1}
+
+}
+
+stopdaemon1(){
+
+  start-stop-daemon --stop --quiet --exec ${DAEMON1}
+}
+startdaemon2(){
+modprobe snd-bcm2835
+
+  start-stop-daemon -b --start --quiet --exec ${DAEMON2}
+}
+
+stopdaemon2(){
+  start-stop-daemon --stop --quiet --exec ${DAEMON2}
+}
+
+startdaemon3(){     
+                                                                                                                                             
+start-stop-daemon -b --start --quiet --exec ${DAEMON3}
+              
+} 
+
+  startdaemon2
+  startdaemon1
+  startdaemon3
+
+
